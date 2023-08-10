@@ -33,6 +33,9 @@ const getNearbyLocations = async ({ locationId }: NearbyLocationArgs): Promise<N
     ])
     .execute()
 
+  if (!closeLocations?.length) {
+    return []
+  }
 
   // get date ranges for close locations
   const locationIds = closeLocations.map(location => location.id)

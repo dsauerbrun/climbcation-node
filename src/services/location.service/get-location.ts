@@ -27,13 +27,12 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
     const dbLocation = await db.selectFrom('locations')
       .leftJoin('info_sections', 'info_sections.location_id', 'locations.id')
       .where('slug', '=', locationSlug)
-      .selectAll()
+      .selectAll('locations')
       .select([
         'info_sections.id as info_section_id',
         'info_sections.title as info_section_title',
         'info_sections.body as info_section_body',
       ]
-
       ).execute()
 
     if (!dbLocation?.length) {
@@ -47,19 +46,13 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
         title: section.info_section_title,
         body: section.info_section_body,
       }
-    })
+    }).filter(section => section.id)
 
     const climbingTypes = await getClimbingTypes({ locationId: location.id })
 
-    
-
-    /*return_map['nearby'] = @location.get_nearby_locations_json
-		return_map['location'] = @location.get_location_json 
-		return_map['sections'] = @location.get_sections*/
     const { id, latitude, longitude, name } = location
     const {ranges: [dateRange]} = await getDateRanges({ locationIds: [id] });
     const closeLocations = await getNearbyLocations({ locationId: id })
-    console.log(closeLocations)
 
     return {
       location: {
