@@ -42,88 +42,51 @@ export const getDateRanges = async ({ locationIds }: GetDateRangesArgs): Promise
 interface Month {id: number, name: string, numericalValue: number}
 
 
-// NOTE: i used chatgpt to translate this from rails to typescript... it's probably broken and gross
-const calculateDateRange = (seasons: Month[]): string => {
-  let months: Month[];
-  if (!seasons?.length) {
-    // Replace this with your own logic for getting the seasons
-    return ''
-  } else {
-    months = seasons;
-  }
 
-  let rangeString = '';
-  const monthArray: { [key: number]: string } = {};
-  
-  months.sort((a, b) => a.numericalValue - b.numericalValue).forEach(month => {
-    monthArray[month.numericalValue] = month.name;
+const calculateDateRange = (months: Month[]): string => {
+  const sortedMonths = months.sort((a, b) => a.numericalValue - b.numericalValue);
+  const monthPairs: Month[][] = [];
+
+  // loop through sorted months
+  // each index will have a list of consecutive months in order
+  // if there is a gap, then we will start a new array
+  // if the last month is the end of the year, then we will add the last month to the first array
+  sortedMonths.forEach((month, index) => {
+    if (index === 0) {
+      monthPairs.push([month]);
+    } else {
+      const previousMonth = sortedMonths[index - 1];
+      if (monthPairs[0]?.[0].numericalValue === 1 && month.numericalValue === 12) {
+        // this handles the case where there is a wrap around from december to january
+        monthPairs[0].unshift(month);
+        // now we need to pull months off the last monthPairs and add them to the beginning until we complete the wrap around
+        while (monthPairs[monthPairs.length - 1]?.findLast(x => true)?.numericalValue + 1 === monthPairs[0]?.[0].numericalValue) {
+          const lastMonth = monthPairs[monthPairs.length - 1].pop();
+          monthPairs[0].unshift(lastMonth);
+        }
+        // if we emptied out the last monthPairs, then we need to remove it
+        if (monthPairs[monthPairs.length - 1]?.length === 0) {
+          monthPairs.pop();
+        }
+      } else if (monthPairs[0]?.[0].numericalValue - 1 === month.numericalValue) {
+        // this handles if there has been a wrap around and we need to add to the beginning of the monthPairs
+        monthPairs[0].unshift(month);
+      } else if (previousMonth.numericalValue + 1 === month.numericalValue) {
+        monthPairs[monthPairs.length - 1].push(month);
+      }  else {
+        monthPairs.push([month]);
+      }
+    }
   });
 
-  let previousMonth = 0;
-  const ranges: string[] = [];
-  let counter = 0;
-  let wrapperBreakMonth = -1;
-
-  if (Object.keys(monthArray).length === 12) {
-    return 'Jan - Dec';
-  }
-
-  for (const [numerical, month] of Object.entries(monthArray)) {
-    counter += 1;
-
-    if (previousMonth === 0) {
-      if (monthArray['12'] && numerical === '1') {
-        let latestMonth = 13;
-        for (const [month_num, _] of Object.entries(monthArray).reverse()) {
-          if (Number(latestMonth) - 1 === Number(month_num)) {
-            latestMonth = Number(month_num);
-          }
-        }
-        ranges.push(monthArray[latestMonth]);
-        rangeString += monthArray[latestMonth].substring(0, 3);
-        wrapperBreakMonth = latestMonth;
-      } else {
-        ranges.push(month);
-        rangeString += month.substring(0, 3);
-      }
+  const dateRanges: string[] = monthPairs.map(monthPair => {
+    console.log('testing here', monthPair)
+    if (monthPair.length === 1) {
+      return monthPair[0].name.substring(0, 3);
+    } else {
+      return `${monthPair[0].name.substring(0, 3)} - ${monthPair[monthPair.length - 1].name.substring(0, 3)}`;
     }
+  });
 
-    if (counter === Object.keys(monthArray).length && previousMonth !== 0) {
-      if (!ranges.includes(monthArray[previousMonth])) {
-        if (wrapperBreakMonth === Number(numerical)) {
-          ranges.push(monthArray[previousMonth]);
-          rangeString += ' - ' + monthArray[previousMonth].substring(0, 3);
-        } else {
-          ranges.push(month);
-          rangeString += ' - ' + month.substring(0, 3);
-        }
-      } else {
-        ranges.push(month);
-        rangeString += ', ' + month.substring(0, 3);
-      }
-    } else if (previousMonth !== 0 && Number(previousMonth) + 1 !== Number(numerical)) {
-      if (!ranges.includes(monthArray[previousMonth])) {
-        if (wrapperBreakMonth === Number(numerical)) {
-          ranges.push(monthArray[previousMonth]);
-          rangeString += ' - ' + monthArray[previousMonth].substring(0, 3);
-        } else {
-          ranges.push(monthArray[previousMonth]);
-          rangeString += ' - ' + monthArray[previousMonth].substring(0, 3) + ', ';
-        }
-      } else {
-        if (wrapperBreakMonth === Number(numerical)) {
-          if (!ranges.includes(monthArray[previousMonth])) {
-            ranges.push(monthArray[previousMonth]);
-            rangeString += ' - ' + monthArray[previousMonth].substring(0, 3);
-          }
-        } else {
-          rangeString += ', ';
-        }
-      }
-      ranges.push(month);
-      rangeString += month.substring(0, 3);
-    }
-    previousMonth = Number(numerical);
-  }
-  return rangeString;
+  return dateRanges.join(', ');
 }
