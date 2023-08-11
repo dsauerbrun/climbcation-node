@@ -9,23 +9,23 @@ interface GetDateRangesResponse {
 }
 
 export const getDateRanges = async ({ locationIds }: GetDateRangesArgs): Promise<GetDateRangesResponse> => {
-  const seasons = await db.selectFrom('locations_seasons')
-    .where('location_id', 'in', locationIds)
-    .leftJoin('seasons', 'locations_seasons.season_id', 'seasons.id')
+  const seasons = await db.selectFrom('locationsSeasons')
+    .where('locationId', 'in', locationIds)
+    .leftJoin('seasons', 'locationsSeasons.seasonId', 'seasons.id')
     .select([
-      'locations_seasons.location_id',
+      'locationsSeasons.locationId',
       'seasons.id',
       'seasons.name',
-      'seasons.numerical_value'
+      'seasons.numericalValue'
     ]).execute()
 
   // group all seasons by location id
   const seasonsByLocationId: {[key: number]: Month[]}= seasons.reduce((acc, season) => {
-    const { location_id, id, name, numerical_value } = season
-    if (!acc[location_id]) {
-      acc[location_id] = []
+    const { locationId, id, name, numericalValue } = season
+    if (!acc[locationId]) {
+      acc[locationId] = []
     }
-    acc[location_id].push({id, name, numerical_value})
+    acc[locationId].push({id, name, numericalValue})
     return acc
   }, {} as {[key: number]: Month[]})
 
@@ -39,7 +39,7 @@ export const getDateRanges = async ({ locationIds }: GetDateRangesArgs): Promise
   return {ranges: dateRanges};
 }
 
-interface Month {id: number, name: string, numerical_value: number}
+interface Month {id: number, name: string, numericalValue: number}
 
 
 // NOTE: i used chatgpt to translate this from rails to typescript... it's probably broken and gross
@@ -55,8 +55,8 @@ const calculateDateRange = (seasons: Month[]): string => {
   let rangeString = '';
   const monthArray: { [key: number]: string } = {};
   
-  months.sort((a, b) => a.numerical_value - b.numerical_value).forEach(month => {
-    monthArray[month.numerical_value] = month.name;
+  months.sort((a, b) => a.numericalValue - b.numericalValue).forEach(month => {
+    monthArray[month.numericalValue] = month.name;
   });
 
   let previousMonth = 0;

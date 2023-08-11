@@ -14,8 +14,8 @@ const getNearbyLocations = async ({ locationId }: NearbyLocationArgs): Promise<N
     .where('id', '=', locationId).executeTakeFirstOrThrow()
 
   const closeLocations = await db.selectFrom('locations')
-    .leftJoin('climbing_types_locations', 'climbing_types_locations.location_id', 'locations.id')
-    .leftJoin('climbing_types', 'climbing_types_locations.climbing_type_id', 'climbing_types.id')
+    .leftJoin('climbingTypesLocations', 'climbingTypesLocations.locationId', 'locations.id')
+    .leftJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
     .where(sql`point(longitude, latitude) <@> point(${longitude}, ${latitude}) < ${maxRadiusMiles}`)
     .where('locations.id', '!=', locationId)
     .select([
@@ -24,12 +24,12 @@ const getNearbyLocations = async ({ locationId }: NearbyLocationArgs): Promise<N
       'locations.longitude',
       'locations.slug',
       'locations.name',
-      'locations.home_thumb_file_name',
+      'locations.homeThumbFileName',
       'locations.country',
       sql<string>`point(longitude, latitude) <@> point(${longitude}, ${latitude})`. as(`distance`),
-      'climbing_types.name as climbing_type_name',
-      'climbing_types.id as climbing_type_id',
-      'climbing_types.icon_file_name as climbing_type_url',
+      'climbingTypes.name as climbingTypeName',
+      'climbingTypes.id as climbingTypeId',
+      'climbingTypes.iconFileName as climbingTypeUrl',
     ])
     .execute()
 
@@ -44,13 +44,13 @@ const getNearbyLocations = async ({ locationId }: NearbyLocationArgs): Promise<N
   const groupedLocations =  closeLocations.reduce((hash, currLocation) => {
     if (!hash[currLocation.id]) {
       const { dateRange } = ranges.find(range => range.locationId === currLocation.id)
-      const {latitude, longitude, slug, name, home_thumb_file_name, country, distance, } = currLocation
+      const {latitude, longitude, slug, name, homeThumbFileName, country, distance, } = currLocation
       hash[currLocation.id] = {
         latitude,
         longitude,
         slug,
         name,
-        homeThumb: home_thumb_file_name,
+        homeThumb: homeThumbFileName,
         country,
         distance: Number(distance),
         climbingTypes: [],
@@ -58,7 +58,7 @@ const getNearbyLocations = async ({ locationId }: NearbyLocationArgs): Promise<N
       }
     }
 
-    hash[currLocation.id].climbingTypes.push({ url: currLocation.climbing_type_url, name: currLocation.climbing_type_name, id: currLocation.climbing_type_id})
+    hash[currLocation.id].climbingTypes.push({ url: currLocation.climbingTypeUrl, name: currLocation.climbingTypeName, id: currLocation.climbingTypeId})
 
     return hash
   }, {} as {[key: number]: NearbyLocation})

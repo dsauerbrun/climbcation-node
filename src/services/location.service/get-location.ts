@@ -25,13 +25,13 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
   try {
     // fetch location
     const dbLocation = await db.selectFrom('locations')
-      .leftJoin('info_sections', 'info_sections.location_id', 'locations.id')
+      .leftJoin('infoSections', 'infoSections.locationId', 'locations.id')
       .where('slug', '=', locationSlug)
       .selectAll('locations')
       .select([
-        'info_sections.id as info_section_id',
-        'info_sections.title as info_section_title',
-        'info_sections.body as info_section_body',
+        'infoSections.id as infoSectionId',
+        'infoSections.title as infoSectionTitle',
+        'infoSections.body as infoSectionBody',
       ]
       ).execute()
 
@@ -42,9 +42,9 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
     const location = dbLocation[0]
     const infoSections = dbLocation.map(section => {
       return {
-        id: section.info_section_id,
-        title: section.info_section_title,
-        body: section.info_section_body,
+        id: section.infoSectionId,
+        title: section.infoSectionTitle,
+        body: section.infoSectionBody,
       }
     }).filter(section => section.id)
 
@@ -76,10 +76,10 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
 }
 
 const getClimbingTypes = async ({ locationId }: { locationId: number }): Promise<ClimbingType[]> => {
-  const climbingTypes = await db.selectFrom('climbing_types')
-    .innerJoin('climbing_types_locations', 'climbing_types_locations.climbing_type_id', 'climbing_types.id') 
-    .select(['climbing_types.id', 'climbing_types.name', 'climbing_types.icon_file_name as url'])
-    .where('climbing_types_locations.location_id', '=', locationId)
+  const climbingTypes = await db.selectFrom('climbingTypes')
+    .innerJoin('climbingTypesLocations', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id') 
+    .select(['climbingTypes.id', 'climbingTypes.name', 'climbingTypes.iconFileName as url'])
+    .where('climbingTypesLocations.locationId', '=', locationId)
     .execute()
   return climbingTypes
 }
