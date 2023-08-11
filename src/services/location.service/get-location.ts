@@ -1,8 +1,13 @@
+import { DateTime } from "luxon"
 import db from "../../db/index.js"
-import { getNearbyLocations } from "./fetchers.js"
+import { getNearbyLocations } from "./get-nearby-locations.js"
 import { getDateRanges } from "./get-date-ranges.js"
 import { ClimbingType, FullLocation } from "./types.js"
 import {sql} from 'kysely'
+import { getTransportations } from "./get-transportations.js"
+import { getFoodOptions } from "./get-food-options.js"
+import { getGrades } from "./get-grades.js"
+import { getAccommodations } from "./get-accommodations.js"
 
 interface ServiceResponseError {
   error?: string
@@ -50,9 +55,25 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
 
     const climbingTypes = await getClimbingTypes({ locationId: location.id })
 
-    const { id, latitude, longitude, name } = location
+
+    const {
+      id, latitude, longitude,
+      name, airportCode, accommodationNotes, homeThumbFileName,
+      closestAccommodation, commonExpensesNotes, country,
+      continent, gettingInNotes, active, rating, slug,
+      createdAt, updatedAt, savingMoneyTips, soloFriendly, walkingDistance
+    } = location
     const {ranges: [dateRange]} = await getDateRanges({ locationIds: [id] });
     const closeLocations = await getNearbyLocations({ locationId: id })
+
+    // get transportations
+    const { transportations } = await getTransportations({ locationId: id })
+    const bestTransportation = transportations.find(x => x.cost)
+    const { foodOptions } = await getFoodOptions({ locationId: id })
+    // get grades
+    const { grades } = await getGrades({ locationId: id })
+    // get accommodations
+    const { accommodations } = await getAccommodations({ locationId: id })
 
     return {
       location: {
@@ -63,7 +84,28 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
         dateRange: dateRange.dateRange,
         nearby: closeLocations,
         infoSections,
-        climbingTypes
+        climbingTypes,
+        airportCode,
+        accommodationNotes,
+        closestAccommodation,
+        commonExpensesNotes,
+        country,
+        continent,
+        gettingInNotes,
+        active,
+        rating,
+        slug,
+        savingMoneyTips,
+        soloFriendly,
+        walkingDistance,
+        createdAt: DateTime.fromJSDate(createdAt),
+        updatedAt: DateTime.fromJSDate(updatedAt),
+        bestTransportation,
+        transportations,
+        homeThumb: homeThumbFileName,
+        foodOptions,
+        grades,
+        accommodations,
       }
     }
 
