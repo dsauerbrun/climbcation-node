@@ -10,7 +10,7 @@
     "migrate:up": "npm run build && node dist/db/migrate_up.js",
     "migrate:down": "npm run build && node dist/db/migrate_down.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rm -rf dist && tsc",
+    "build": "rm -rf dist/* && tsc",
     "codegen": "kysely-codegen  --camel-case"
   },
   "keywords": [],
