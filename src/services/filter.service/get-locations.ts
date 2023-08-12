@@ -1,10 +1,11 @@
-import { sql } from'kysely'
+import { sql, SelectQueryBuilder, expressionBuilder, Selection } from 'kysely'
 import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
 import { FilterLocation } from "./types.js"
 import { getDateRanges } from "../location.service/get-date-ranges.js"
 import { getClimbingTypes } from "../location.service/index.js"
 import { getGradesForLocations } from "../location.service/get-grades.js"
+import { DB } from 'kysely-codegen'
 
 interface LatLng {
   longitude: number
@@ -48,7 +49,6 @@ const sortMap = {
 
 export const getLocations = async ({ filter, mapFilter, cursor, sort }: LocationRequest): Promise<LocationResponse> => {
   try {
-    // fetch location
     const { longitude, latitude } = getUserLatLng(sort)
 
     let locationQuery = db.selectFrom('locations')
@@ -67,9 +67,24 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
         'locations.slug',
         sql<string>`point(longitude, latitude) <@> point(${longitude || 0}, ${latitude || 0})`. as(`distance`),
       ])
+      .groupBy([
+        'locations.id',
+        'locations.latitude',
+        'locations.longitude',
+        'locations.name',
+        'locations.country',
+        'locations.continent',
+        'locations.rating',
+        'locations.walkingDistance',
+        'locations.soloFriendly',
+        'locations.homeThumbFileName',
+        'locations.slug',
+      ])
       .limit(10)
 
+    const queryType = typeof locationQuery
     if (filter?.climbingTypes?.length > 0) {
+      //locationQuery = filterByClimbingTypes(locationQuery, filter.climbingTypes);
       locationQuery = locationQuery.innerJoin('climbingTypesLocations', 'climbingTypesLocations.locationId', 'locations.id')
         .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
         .where('climbingTypes.name', 'in', filter.climbingTypes)
@@ -257,3 +272,17 @@ const getUserLatLng = (sortArray: Sort[]): LatLng => {
 
   return firstSort.latlng
 }
+
+/*const filterByClimbingTypes = (locationQuery: SelectQueryBuilder<DB, 'locations', Selection<DB, 'locations', 'id'>>, climbingTypes: string[]) => {
+  return locationQuery.innerJoin('climbingTypesLocations', 'climbingTypesLocations.locationId', 'locations.id')
+    .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
+    .where('climbingTypes.name', 'in', climbingTypes)
+}
+
+const filterByClimbingTypesSubquery = (climbingTypes: string[]) => {
+  const eb = expressionBuilder<DB, 'locations'>()
+  return eb.exists(eb.selectFrom('climbingTypesLocations')
+    .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
+    .whereRef('climbingTypesLocations.locationId', '=', 'locations.id')
+    .where('climbingTypes.name', 'in', climbingTypes))
+}*/
