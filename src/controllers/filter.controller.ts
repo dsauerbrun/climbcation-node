@@ -10,16 +10,16 @@ const filterRoutes: ControllerEndpoint[] = [
     routePath: '/filter/locations',
     method: 'get',
     middlewares: [rateLimiter],
-    executionFunction: async (req: Request, res: TypedResponse<{locations: FilterLocation[]}>) => {
+    executionFunction: async (req: Request, res: TypedResponse<{locations: FilterLocation[], cursor: string}>) => {
       const { filter, mapFilter, cursor, sort } = req.query as unknown as LocationRequest
 
-      const { locations, error } = await getLocations({ filter, mapFilter, cursor, sort })
+      const { locations, cursor: newCursor, error } = await getLocations({ filter, mapFilter, cursor, sort })
       if (error) {
         res.status(400).send(error)
         return
       }
 
-      res.json({ locations })
+      res.json({ locations, cursor: newCursor })
     }
   }
 ]

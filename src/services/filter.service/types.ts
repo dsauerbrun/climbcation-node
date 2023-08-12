@@ -13,5 +13,6 @@ export interface FilterLocation {
   walkingDistance: boolean
   soloFriendly: boolean
   grades: Grade[]
+  distance?: number
 }
 

@@ -11,6 +11,12 @@ interface LatLng {
   latitude: number
 }
 
+interface Sort {
+  sortName: string,
+  sortDirection: string,
+  latlng?: LatLng
+}
+
 export interface LocationRequest {
   filter: {
     climbingTypes: string[]
@@ -23,26 +29,44 @@ export interface LocationRequest {
     soloFriendly: boolean
   }
   mapFilter: {
-    northEast: LatLng
-    southWest: LatLng
+    northeast: LatLng
+    southwest: LatLng
   }
   cursor?: string
-  sort?: {sortName: string, sortDirection: string}[]
-
+  sort?: Sort[]
 }
 
 interface LocationResponse extends ServiceResponseError {
   locations?: FilterLocation[]
   cursor?: string
 }
+const sortMap = {
+  'name': {sortColumn: 'locations.name', cursorColumn: 'name'},
+  'rating': {sortColumn: 'locations.rating', cursorColumn: 'id'},
+  'distance': {sortColumn: 'distance', cursorColumn: 'distance'},
+}
 
 export const getLocations = async ({ filter, mapFilter, cursor, sort }: LocationRequest): Promise<LocationResponse> => {
   try {
     // fetch location
+    const { longitude, latitude } = getUserLatLng(sort)
 
     let locationQuery = db.selectFrom('locations')
       .where('active', 'is', true)
-      .selectAll('locations')
+      .select([
+        'locations.id',
+        'locations.latitude',
+        'locations.longitude',
+        'locations.name',
+        'locations.country',
+        'locations.continent',
+        'locations.rating',
+        'locations.walkingDistance',
+        'locations.soloFriendly',
+        'locations.homeThumbFileName',
+        'locations.slug',
+        sql<string>`point(longitude, latitude) <@> point(${longitude || 0}, ${latitude || 0})`. as(`distance`),
+      ])
       .limit(10)
 
     if (filter?.climbingTypes?.length > 0) {
@@ -115,19 +139,51 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
     if (filter?.soloFriendly) {
       locationQuery = locationQuery.where('soloFriendly', 'is', true)
     }
-    
+
+    if (mapFilter?.northeast && mapFilter?.southwest) {
+      const { northeast, southwest } = mapFilter
+      locationQuery = locationQuery
+        .where('latitude', '<', northeast.latitude)
+        .where('latitude', '>', southwest.latitude)
+        .where('longitude', '<', northeast.longitude)
+        .where('longitude', '>', southwest.longitude)
+    }
+
+    // only support for one sorting at the moment
+    const sortName = sort?.[0]?.sortName || 'name'
+    const sortDirection: 'desc' | 'asc' = sort?.[0]?.sortDirection === 'desc' ? 'desc' : 'asc'
+    const sortLogic = sortMap[sortName]
+    const { sortColumn, cursorColumn } = sortLogic
+    const { ref } = db.dynamic
+    if (sortName === 'distance') {
+      locationQuery = locationQuery.orderBy(sql`point(longitude, latitude) <@> point(${longitude}, ${latitude})`, sortDirection)
+    } else {
+      locationQuery = locationQuery.orderBy(ref(sortColumn), sortDirection)
+        .orderBy('locations.id', 'asc')
+    }
+    locationQuery = locationQuery
+
+    if (cursor) {
+      let cursorWhere = cursorColumn
+      if (sortColumn === 'distance') {
+        const { longitude, latitude } = sort?.[0]?.latlng
+        cursorWhere = sql`point(longitude, latitude) <@> point(${longitude}, ${latitude})`
+      }
+      locationQuery = locationQuery.where(cursorWhere, '>', cursor)
+    }
+
     const locations = await locationQuery.execute()
 
-    const locationIds = locations.map(location => location.id)
+    const orderedLocationIds = locations.map(location => location.id)
 
-    const { ranges } = await getDateRanges({locationIds})
+    const { ranges } = await getDateRanges({locationIds: orderedLocationIds})
     const locationRanges = ranges.reduce((acc, range) => {
       acc[range.locationId] = range.dateRange
       return acc
     }, {} as {[key: number]: string})
 
-    const climbingTypes = await getClimbingTypes({ locationIds })
-    const { grades } = await getGradesForLocations({ locationIds })
+    const climbingTypes = await getClimbingTypes({ locationIds: orderedLocationIds })
+    const { grades } = await getGradesForLocations({ locationIds: orderedLocationIds })
 
     // group locations by id
     const groupedLocations = locations.reduce((acc, location) => {
@@ -135,23 +191,28 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       return acc
     }, {} as {[key: number]: typeof locations[0]})
 
+    const orderedLocations = orderedLocationIds.map(id => {
+      const location = groupedLocations[id]
+      return {
+        id: location.id,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        dateRange: locationRanges[location.id],
+        name: location.name,
+        homeThumb: location.homeThumbFileName,
+        rating: location.rating,
+        slug: location.slug,
+        climbingTypes: climbingTypes[location.id],
+        grades: grades[location.id],
+        walkingDistance: location.walkingDistance,
+        soloFriendly: location.soloFriendly,
+        distance: Number(location.distance),
+      }
+    })
+
     return {
-      locations: Object.values(groupedLocations).map(location => {
-        return {
-          id: location.id,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          dateRange: locationRanges[location.id],
-          name: location.name,
-          homeThumb: location.homeThumbFileName,
-          rating: location.rating,
-          slug: location.slug,
-          climbingTypes: climbingTypes[location.id],
-          grades: grades[location.id],
-          walkingDistance: location.walkingDistance,
-          soloFriendly: location.soloFriendly
-        }
-      })
+      locations: orderedLocations,
+      cursor: String(orderedLocations[orderedLocations.length - 1]?.[cursorColumn]),
     }
 
   } catch (err) {
@@ -161,6 +222,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
   }
 
 }
+
 
 const getMonthsToFilter = (startMonth: number, endMonth: number): number[] => {
   const monthsToFilter = []
@@ -185,4 +247,13 @@ const getMonthsToFilter = (startMonth: number, endMonth: number): number[] => {
     }
     return monthsToFilter;
   }
+}
+
+const getUserLatLng = (sortArray: Sort[]): LatLng => {
+  const firstSort = sortArray?.[0] 
+  if (!firstSort?.latlng) {
+    return { latitude: 0, longitude: 0 }
+  }
+
+  return firstSort.latlng
 }
