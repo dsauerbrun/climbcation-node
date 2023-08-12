@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect, CamelCasePlugin } from 'kysely';
+import { Kysely, PostgresDialect, CamelCasePlugin, DeduplicateJoinsPlugin } from 'kysely';
 import { DB } from 'kysely-codegen';
 import pg from 'pg';
 
@@ -11,7 +11,8 @@ const db = new Kysely<DB>({
     }),
   }),
   plugins: [
-    new CamelCasePlugin()
+    new CamelCasePlugin(),
+    new DeduplicateJoinsPlugin()
   ],
 });
 
