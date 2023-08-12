@@ -1,11 +1,5 @@
-import { sql, SelectQueryBuilder, expressionBuilder, Selection } from 'kysely'
 import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
-import { FilterLocation } from "./types.js"
-import { getDateRanges } from "../location.service/get-date-ranges.js"
-import { getClimbingTypes } from "../location.service/index.js"
-import { getGradesForLocations } from "../location.service/get-grades.js"
-import { DB } from 'kysely-codegen'
 
 export interface GetFiltersResponse extends ServiceResponseError {
   climbingTypes?: {climbingType: string, url: string}[]
