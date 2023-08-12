@@ -12,7 +12,7 @@ const db = new Kysely<DB>({
   }),
   plugins: [
     new CamelCasePlugin(),
-    new DeduplicateJoinsPlugin()
+    new DeduplicateJoinsPlugin(),
   ],
 });
 

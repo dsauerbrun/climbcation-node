@@ -1,24 +1,13 @@
 import * as path from 'path'
-import pg from 'pg'
 import { promises as fs } from 'fs'
-import { DB } from 'kysely-codegen';
 import {
-  Kysely,
   Migrator,
-  PostgresDialect,
   FileMigrationProvider,
 } from 'kysely'
+import db from './db.js'
 
 const __dirname = path.resolve()
-const { Pool } = pg
 async function migrateToLatest() {
-  const db = new Kysely<DB>({
-    dialect: new PostgresDialect({
-      pool: new Pool({
-        connectionString: process.env.DATABASE_URL,
-      }),
-    }),
-  })
 
   const migrator = new Migrator({
     db,
