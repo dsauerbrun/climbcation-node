@@ -1,7 +1,7 @@
 import { Request } from "express"
 import { rateLimiter } from "../lib/middlewares/index.js"
 import { ControllerEndpoint, TypedResponse } from "../lib/models.js"
-import { FullLocation, getLocation } from '../services/location.service/index.js'
+import { FullLocation, LocationName, getAllLocationNames, getLocation } from '../services/location.service/index.js'
 
 const locationRoutes: ControllerEndpoint[] = [
   {
@@ -19,7 +19,21 @@ const locationRoutes: ControllerEndpoint[] = [
 
       res.json({ location })
     }
-  }
+  },
+  {
+    routePath: '/location/name/all',
+    method: 'get',
+    middlewares: [rateLimiter],
+    executionFunction: async (_req: Request, res: TypedResponse<LocationName[]>) => {
+      const { names, error } = await getAllLocationNames()
+      if (error) {
+        res.status(400).send(error)
+        return
+      }
+
+      res.json(names)
+    }
+  },
 ]
 
 export default locationRoutes

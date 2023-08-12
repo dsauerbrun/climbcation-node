@@ -14,6 +14,8 @@ export interface Location {
 
 }
 
+export interface LocationName{ name: string, slug: string }
+
 export interface FullLocation extends Location {
   airportCode: string
   dateRange: string
