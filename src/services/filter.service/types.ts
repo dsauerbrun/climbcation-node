@@ -1,4 +1,4 @@
-import { ClimbingType, Grade } from '../location.service/index.js'
+import { ClimbingType as LocationClimbingType, Grade as LocationGrade } from '../location.service/index.js'
 
 export interface FilterLocation {
   id: number
@@ -9,10 +9,16 @@ export interface FilterLocation {
   homeThumb: string
   rating: number
   slug: string
-  climbingTypes: ClimbingType[]
+  climbingTypes: LocationClimbingType[]
   walkingDistance: boolean
   soloFriendly: boolean
-  grades: Grade[]
+  grades: LocationGrade[]
   distance?: number
 }
 
+export interface ClimbingType {id: number, climbingType: string, url: string}
+export interface Grade {
+  climbingType: string,
+  climbingTypeId: number,
+  id: number, grade: string, order: number,
+}

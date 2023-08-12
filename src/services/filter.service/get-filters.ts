@@ -1,40 +1,18 @@
 import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
+import { getClimbingTypes } from "./get-climbing-types.js"
+import { getGrades } from "./get-grades.js"
+import { ClimbingType, Grade } from "./types.js"
 
 export interface GetFiltersResponse extends ServiceResponseError {
-  climbingTypes?: {climbingType: string, url: string}[]
-  grades?: {
-    climbingType: string,
-    climbingTypeId: number,
-    id: number, grade: string, order: number,
-  }[]
+  climbingTypes?: ClimbingType[]
+  grades?: Grade[]
 }
 
 export const getFilters = async (): Promise<GetFiltersResponse> => {
   try {
-    const dbClimbingTypes = await db.selectFrom('climbingTypes').selectAll('climbingTypes').execute()
-    const dbGrades = await db.selectFrom('grades')
-      .leftJoin('climbingTypes', 'climbingTypes.id', 'grades.climbingTypeId')
-      .selectAll('grades')
-      .select(['climbingTypes.name as climbingTypeName', 'climbingTypes.id as climbingTypeId', 'climbingTypes.iconFileName'])
-      .orderBy('grades.order', 'asc').execute()
-
-    const climbingTypes = dbClimbingTypes.map(type => {
-      const { name, iconFileName } = type
-      return { climbingType: name, url: iconFileName }
-    })
-
-    const grades = dbGrades.map(grade => {
-      const { id, us, french, order, climbingTypeId, climbingTypeName } = grade
-      return {
-        id,
-        grade: `${us}|${french}`,
-        order,
-        climbingType: climbingTypeName,
-        climbingTypeId,
-      }
-    })
-
+    const { climbingTypes } = await getClimbingTypes()
+    const { grades } = await getGrades()
 
     return { climbingTypes, grades }
   } catch (err) {

@@ -3,11 +3,13 @@ import { DateTime } from "luxon"
 
 import locationRoutes from "../controllers/location.controller.js"
 import filterRoutes from "../controllers/filter.controller.js"
+import crudRoutes from "../controllers/crud.controller.js"
 import { ControllerEndpoint } from "../lib/models.js"
 
 const allRoutes = [
   ...locationRoutes,
-  ...filterRoutes
+  ...filterRoutes,
+  ...crudRoutes
 ]
 
 export default (app) => {
