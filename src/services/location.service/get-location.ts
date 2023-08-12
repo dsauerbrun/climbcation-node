@@ -2,16 +2,14 @@ import { DateTime } from "luxon"
 import db from "../../db/index.js"
 import { getNearbyLocations } from "./get-nearby-locations.js"
 import { getDateRanges } from "./get-date-ranges.js"
-import { ClimbingType, FullLocation } from "./types.js"
-import {sql} from 'kysely'
+import { FullLocation } from "./types.js"
 import { getTransportations } from "./get-transportations.js"
 import { getFoodOptions } from "./get-food-options.js"
-import { getGrades } from "./get-grades.js"
+import { getGradesForLocation } from "./get-grades.js"
 import { getAccommodations } from "./get-accommodations.js"
+import { ServiceResponseError } from "../../lib/index.js"
+import { getClimbingTypesForLocation } from "./get-climbing-types.js"
 
-interface ServiceResponseError {
-  error?: string
-}
 
 interface LocationRequest {
   locationSlug: string
@@ -53,7 +51,7 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
       }
     }).filter(section => section.id)
 
-    const climbingTypes = await getClimbingTypes({ locationId: location.id })
+    const climbingTypes = await getClimbingTypesForLocation({ locationId: location.id })
 
 
     const {
@@ -71,7 +69,7 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
     const bestTransportation = transportations.find(x => x.cost)
     const { foodOptions } = await getFoodOptions({ locationId: id })
     // get grades
-    const { grades } = await getGrades({ locationId: id })
+    const { grades } = await getGradesForLocation({ locationId: id })
     // get accommodations
     const { accommodations } = await getAccommodations({ locationId: id })
 
@@ -115,13 +113,4 @@ export const getLocation = async ({ locationSlug }: LocationRequest): Promise<Lo
     return { error: error.message }
   }
 
-}
-
-const getClimbingTypes = async ({ locationId }: { locationId: number }): Promise<ClimbingType[]> => {
-  const climbingTypes = await db.selectFrom('climbingTypes')
-    .innerJoin('climbingTypesLocations', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id') 
-    .select(['climbingTypes.id', 'climbingTypes.name', 'climbingTypes.iconFileName as url'])
-    .where('climbingTypesLocations.locationId', '=', locationId)
-    .execute()
-  return climbingTypes
 }

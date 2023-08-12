@@ -2,10 +2,12 @@ import { Request, Response } from "express"
 import { DateTime } from "luxon"
 
 import locationRoutes from "../controllers/location.controller.js"
+import filterRoutes from "../controllers/filter.controller.js"
 import { ControllerEndpoint } from "../lib/models.js"
 
 const allRoutes = [
-  ...locationRoutes
+  ...locationRoutes,
+  ...filterRoutes
 ]
 
 export default (app) => {

@@ -9,6 +9,9 @@ interface GetDateRangesResponse {
 }
 
 export const getDateRanges = async ({ locationIds }: GetDateRangesArgs): Promise<GetDateRangesResponse> => {
+  if (locationIds.length === 0) {
+    return { ranges: [] }
+  }
   const seasons = await db.selectFrom('locationsSeasons')
     .where('locationId', 'in', locationIds)
     .leftJoin('seasons', 'locationsSeasons.seasonId', 'seasons.id')
@@ -80,7 +83,6 @@ const calculateDateRange = (months: Month[]): string => {
   });
 
   const dateRanges: string[] = monthPairs.map(monthPair => {
-    console.log('testing here', monthPair)
     if (monthPair.length === 1) {
       return monthPair[0].name.substring(0, 3);
     } else {

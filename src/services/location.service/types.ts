@@ -72,7 +72,6 @@ export interface NearbyLocation {
   distance: number;
   climbingTypes: ClimbingType[];
   dateRange: string;
-
 }
 
 export interface ClimbingType {
