@@ -1,7 +1,7 @@
 import { sql, SelectQueryBuilder, expressionBuilder, Selection } from 'kysely'
 import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
-import { FilterLocation } from "./types.js"
+import { FilterLocation, MapLocation } from "./types.js"
 import { getDateRanges } from "../location.service/get-date-ranges.js"
 import { getClimbingTypes } from "../location.service/index.js"
 import { getGradesForLocations } from "../location.service/get-grades.js"
@@ -26,7 +26,7 @@ export interface LocationRequest {
     grades: {[key: number]: number[]}
     noCar: boolean
     rating: number[]
-    search: string
+    searchQuery: string
     soloFriendly: boolean
   }
   mapFilter: {
@@ -39,6 +39,7 @@ export interface LocationRequest {
 
 interface LocationResponse extends ServiceResponseError {
   locations?: FilterLocation[]
+  mapLocations?: MapLocation[]
   cursor?: string
 }
 const sortMap = {
@@ -80,7 +81,6 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
         'locations.homeThumbFileName',
         'locations.slug',
       ])
-      .limit(10)
 
     if (filter?.climbingTypes?.length > 0) {
       locationQuery = filterByClimbingTypes(locationQuery, filter.climbingTypes);
@@ -91,7 +91,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       locationQuery = filterByMonths(locationQuery, monthsToFilter)
     }
 
-    if (filter?.grades) {
+    if (filter?.grades && Object.keys(filter?.grades).length) {
       const gradeFilter = []
       const climbingTypeGradeFilter = []
       for (const [typeId, grades] of Object.entries(filter.grades)) {
@@ -109,8 +109,8 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       locationQuery = locationQuery.where('rating', 'in', filter.rating)
     }
 
-    if (filter?.search) {
-      locationQuery = filterBySearch(locationQuery, filter.search)
+    if (filter?.searchQuery) {
+      locationQuery = filterBySearch(locationQuery, filter.searchQuery)
     }
 
     if (filter?.soloFriendly) {
@@ -134,7 +134,6 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       locationQuery = locationQuery.orderBy(ref(sortColumn), sortDirection)
         .orderBy('locations.id', 'asc')
     }
-    locationQuery = locationQuery
 
     if (cursor) {
       let cursorWhere = cursorColumn
@@ -145,17 +144,21 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       locationQuery = locationQuery.where(cursorWhere, '>', cursor)
     }
 
-    const locations = await locationQuery.execute()
+    // if a cursor was passed, front end already has all of the map locations from the first query
+    const allLocations = cursor ? [] : await locationQuery.execute()
+
+    const locations = await locationQuery.limit(10).execute()
 
     const orderedLocationIds = locations.map(location => location.id)
+    const allLocationIds = cursor ? orderedLocationIds : allLocations.map(location => location.id)
 
-    const { ranges } = await getDateRanges({locationIds: orderedLocationIds})
+    const { ranges } = await getDateRanges({locationIds: allLocationIds})
     const locationRanges = ranges.reduce((acc, range) => {
       acc[range.locationId] = range.dateRange
       return acc
     }, {} as {[key: number]: string})
 
-    const climbingTypes = await getClimbingTypes({ locationIds: orderedLocationIds })
+    const climbingTypes = await getClimbingTypes({ locationIds: allLocationIds })
     const { grades } = await getGradesForLocations({ locationIds: orderedLocationIds })
 
     // group locations by id
@@ -183,8 +186,35 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       }
     })
 
+    // group locations by id
+    const groupedAllLocations = allLocations.reduce((acc, location) => {
+      acc[location.id] = location
+      return acc
+    }, {} as {[key: number]: typeof locations[0]})
+
+    const mapLocations: MapLocation[] = cursor ? null : allLocationIds.map(id => {
+      const location = groupedAllLocations[id]
+      return {
+        id: location.id,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        dateRange: locationRanges[location.id],
+        name: location.name,
+        homeThumb: location.homeThumbFileName,
+        rating: location.rating,
+        slug: location.slug,
+        climbingTypes: climbingTypes[location.id],
+        grades: grades[location.id],
+        walkingDistance: location.walkingDistance,
+        soloFriendly: location.soloFriendly,
+        distance: Number(location.distance),
+      }
+    })
+
+
     return {
       locations: orderedLocations,
+      mapLocations,
       cursor: String(orderedLocations[orderedLocations.length - 1]?.[cursorColumn]),
     }
 

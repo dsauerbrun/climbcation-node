@@ -1,6 +1,6 @@
 import { ClimbingType as LocationClimbingType, Grade as LocationGrade } from '../location.service/index.js'
 
-export interface FilterLocation {
+export interface MapLocation {
   id: number
   latitude: number
   longitude: number
@@ -12,6 +12,9 @@ export interface FilterLocation {
   climbingTypes: LocationClimbingType[]
   walkingDistance: boolean
   soloFriendly: boolean
+}
+
+export interface FilterLocation extends MapLocation {
   grades: LocationGrade[]
   distance?: number
 }
