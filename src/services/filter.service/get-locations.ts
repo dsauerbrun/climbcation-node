@@ -82,20 +82,13 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
       ])
       .limit(10)
 
-    const queryType = typeof locationQuery
     if (filter?.climbingTypes?.length > 0) {
-      //locationQuery = filterByClimbingTypes(locationQuery, filter.climbingTypes);
-      locationQuery = locationQuery.innerJoin('climbingTypesLocations', 'climbingTypesLocations.locationId', 'locations.id')
-        .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
-        .where('climbingTypes.name', 'in', filter.climbingTypes)
+      locationQuery = filterByClimbingTypes(locationQuery, filter.climbingTypes);
     }
 
     if(filter?.startMonth && filter?.endMonth) {
       const monthsToFilter = getMonthsToFilter(filter.startMonth, filter.endMonth)
-      locationQuery = locationQuery
-        .innerJoin('locationsSeasons', 'locationsSeasons.locationId', 'locations.id')
-        .innerJoin('seasons', 'locationsSeasons.seasonId', 'seasons.id')
-        .where('seasons.numericalValue', 'in', monthsToFilter)
+      locationQuery = filterByMonths(locationQuery, monthsToFilter)
     }
 
     if (filter?.grades) {
@@ -105,26 +98,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
         climbingTypeGradeFilter.push(typeId)
         grades.forEach(grade => gradeFilter.push(grade))
       }
-      locationQuery = locationQuery.innerJoin('gradesLocations', 'gradesLocations.locationId', 'locations.id')
-        .where(({ eb, or, not, exists }) => 
-          or([
-            // if grade id is in the filter
-            eb('gradesLocations.gradeId', 'in', gradeFilter),
-            // if the location has a climbing type that isn't being queried in the grade filter
-            // the way this works:
-            // get all the climbing types that are being queried in the grade filter
-            // if the location has a climbing type that isn't being queried in the grade filter, then we want to include it
-            // for example: lets say we are filtering by sport climbing and bouldering:v1, we want bishop to be expluded because its too hard
-            // HOWEVER, kalymnos doesn't have any bouldering, so we want to include it
-            not(exists(sql`(
-                SELECT 1 FROM grades_locations as t1
-                inner join grades as t2 on t2.id = t1.grade_id
-                WHERE locations.id = t1.location_id and
-                t2.climbing_type_id in (${climbingTypeGradeFilter.join(',')})
-              )`
-            ))
-          ])
-        )
+      locationQuery = filterByGrades(locationQuery, climbingTypeGradeFilter, gradeFilter)
     }
 
     if (filter?.noCar) {
@@ -136,19 +110,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
     }
 
     if (filter?.search) {
-      const lowercaseSearchQuery = filter.search.toLowerCase()
-      locationQuery = locationQuery
-        .leftJoin('infoSections', 'infoSections.locationId', 'locations.id')
-        .where(({ eb, or }) => or([
-          eb(sql`lower(locations.name)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.country)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.continent)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.getting_in_notes)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.accommodation_notes)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.common_expenses_notes)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(locations.saving_money_tips)`, 'like', `%${lowercaseSearchQuery}%`),
-          eb(sql`lower(info_sections.body)`, 'like', `%${lowercaseSearchQuery}%`)
-        ]))
+      locationQuery = filterBySearch(locationQuery, filter.search)
     }
 
     if (filter?.soloFriendly) {
@@ -157,11 +119,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
 
     if (mapFilter?.northeast && mapFilter?.southwest) {
       const { northeast, southwest } = mapFilter
-      locationQuery = locationQuery
-        .where('latitude', '<', northeast.latitude)
-        .where('latitude', '>', southwest.latitude)
-        .where('longitude', '<', northeast.longitude)
-        .where('longitude', '>', southwest.longitude)
+      locationQuery = filterByMap(locationQuery, northeast, southwest)
     }
 
     // only support for one sorting at the moment
@@ -273,16 +231,62 @@ const getUserLatLng = (sortArray: Sort[]): LatLng => {
   return firstSort.latlng
 }
 
-/*const filterByClimbingTypes = (locationQuery: SelectQueryBuilder<DB, 'locations', Selection<DB, 'locations', 'id'>>, climbingTypes: string[]) => {
+const filterByClimbingTypes = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, climbingTypes: string[]) => {
   return locationQuery.innerJoin('climbingTypesLocations', 'climbingTypesLocations.locationId', 'locations.id')
     .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
     .where('climbingTypes.name', 'in', climbingTypes)
 }
 
-const filterByClimbingTypesSubquery = (climbingTypes: string[]) => {
-  const eb = expressionBuilder<DB, 'locations'>()
-  return eb.exists(eb.selectFrom('climbingTypesLocations')
-    .innerJoin('climbingTypes', 'climbingTypesLocations.climbingTypeId', 'climbingTypes.id')
-    .whereRef('climbingTypesLocations.locationId', '=', 'locations.id')
-    .where('climbingTypes.name', 'in', climbingTypes))
-}*/
+const filterByMonths = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, months: number[]) => {
+  return locationQuery
+    .innerJoin('locationsSeasons', 'locationsSeasons.locationId', 'locations.id')
+    .innerJoin('seasons', 'locationsSeasons.seasonId', 'seasons.id')
+    .where('seasons.numericalValue', 'in', months)
+}
+
+const filterByGrades = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, gradeFilter: number[], climbingTypeGradeFilter: number[]) => {
+  return locationQuery.innerJoin('gradesLocations', 'gradesLocations.locationId', 'locations.id')
+    .where(({ eb, or, not, exists }) => 
+      or([
+        // if grade id is in the filter
+        eb('gradesLocations.gradeId', 'in', gradeFilter),
+        // if the location has a climbing type that isn't being queried in the grade filter
+        // the way this works:
+        // get all the climbing types that are being queried in the grade filter
+        // if the location has a climbing type that isn't being queried in the grade filter, then we want to include it
+        // for example: lets say we are filtering by sport climbing and bouldering:v1, we want bishop to be expluded because its too hard
+        // HOWEVER, kalymnos doesn't have any bouldering, so we want to include it
+        not(exists(sql`(
+            SELECT 1 FROM grades_locations as t1
+            inner join grades as t2 on t2.id = t1.grade_id
+            WHERE locations.id = t1.location_id and
+            t2.climbing_type_id in (${climbingTypeGradeFilter.join(',')})
+          )`
+        ))
+      ])
+    )
+}
+
+const filterBySearch = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, search: string) => {
+  const lowercaseSearchQuery = search.toLowerCase()
+  return locationQuery
+    .leftJoin('infoSections', 'infoSections.locationId', 'locations.id')
+    .where(({ eb, or }) => or([
+      eb(sql`lower(locations.name)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.country)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.continent)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.getting_in_notes)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.accommodation_notes)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.common_expenses_notes)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(locations.saving_money_tips)`, 'like', `%${lowercaseSearchQuery}%`),
+      eb(sql`lower(info_sections.body)`, 'like', `%${lowercaseSearchQuery}%`)
+    ]))
+}
+
+const filterByMap = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, northeast: LatLng, southwest: LatLng) => {
+  return locationQuery
+    .where('latitude', '<', northeast.latitude)
+    .where('latitude', '>', southwest.latitude)
+    .where('longitude', '<', northeast.longitude)
+    .where('longitude', '>', southwest.longitude)
+}
