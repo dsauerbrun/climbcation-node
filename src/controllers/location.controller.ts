@@ -5,7 +5,7 @@ import { FullLocation, LocationName, getAllLocationNames, getLocation } from '..
 
 const locationRoutes: ControllerEndpoint[] = [
   {
-    routePath: '/location/:locationSlug',
+    routePath: '/api/location/:locationSlug',
     method: 'get',
     middlewares: [rateLimiter],
     executionFunction: async (req: Request<{locationSlug: string}>, res: TypedResponse<{location: FullLocation}>) => {

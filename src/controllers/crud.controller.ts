@@ -5,7 +5,7 @@ import { GetAttributeOptionsResponse, getAttributeOptions } from "../services/cr
 
 const crudRoutes: ControllerEndpoint[] = [
   {
-    routePath: '/get_attribute_options',
+    routePath: '/api/get_attribute_options',
     method: 'get',
     middlewares: [rateLimiter],
     executionFunction: async (req: Request, res: TypedResponse<GetAttributeOptionsResponse>) => {

@@ -43,9 +43,9 @@ interface LocationResponse extends ServiceResponseError {
   cursor?: string
 }
 const sortMap = {
-  'name': {sortColumn: 'locations.name', cursorColumn: 'name'},
-  'rating': {sortColumn: 'locations.rating', cursorColumn: 'id'},
-  'distance': {sortColumn: 'distance', cursorColumn: 'distance'},
+  'name': {sortColumn: 'locations.name', cursorColumn: 'name', cursorSqlColumn: 'locations.name'},
+  'rating': {sortColumn: 'locations.rating', cursorColumn: 'id', cursorSqlColumn: 'locations.id'},
+  'distance': {sortColumn: 'distance', cursorColumn: 'distance', cursorSqlColumn: 'distance'},
 }
 
 export const getLocations = async ({ filter, mapFilter, cursor, sort }: LocationRequest): Promise<LocationResponse> => {
@@ -126,7 +126,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
     const sortName = sort?.[0]?.sortName || 'name'
     const sortDirection: 'desc' | 'asc' = sort?.[0]?.sortDirection === 'desc' ? 'desc' : 'asc'
     const sortLogic = sortMap[sortName]
-    const { sortColumn, cursorColumn } = sortLogic
+    const { sortColumn, cursorColumn, cursorSqlColumn } = sortLogic
     const { ref } = db.dynamic
     if (sortName === 'distance') {
       locationQuery = locationQuery.orderBy(sql`point(longitude, latitude) <@> point(${longitude}, ${latitude})`, sortDirection)
@@ -136,7 +136,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
     }
 
     if (cursor) {
-      let cursorWhere = cursorColumn
+      let cursorWhere = cursorSqlColumn
       if (sortColumn === 'distance') {
         const { longitude, latitude } = sort?.[0]?.latlng
         cursorWhere = sql`point(longitude, latitude) <@> point(${longitude}, ${latitude})`

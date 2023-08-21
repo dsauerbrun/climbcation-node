@@ -4,7 +4,7 @@ import { GetThreadResponse, getThread } from "../services/forum.service/index.js
 
 const forumRoutes: ControllerEndpoint[] = [
   {
-    routePath: '/threads/:id',
+    routePath: '/api/threads/:id',
     method: 'get',
     middlewares: [rateLimiter],
     executionFunction: async (req: TypedRequestQuery<{destinationSlug?: string}>, res: TypedResponse<GetThreadResponse>) => {
