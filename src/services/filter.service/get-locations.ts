@@ -215,7 +215,7 @@ export const getLocations = async ({ filter, mapFilter, cursor, sort }: Location
     return {
       locations: orderedLocations,
       mapLocations,
-      cursor: String(orderedLocations[orderedLocations.length - 1]?.[cursorColumn]),
+      cursor: orderedLocations[orderedLocations.length - 1] && String(orderedLocations[orderedLocations.length - 1]?.[cursorColumn]),
     }
 
   } catch (err) {
@@ -317,6 +317,8 @@ const filterByMap = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, n
   return locationQuery
     .where('latitude', '<', northeast.latitude)
     .where('latitude', '>', southwest.latitude)
-    .where('longitude', '<', northeast.longitude)
-    .where('longitude', '>', southwest.longitude)
+    .where(({ eb, or}) => or([
+      eb('longitude', '<', northeast.longitude),
+      eb('longitude', '>', southwest.longitude),
+    ]))
 }
