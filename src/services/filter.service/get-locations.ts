@@ -314,11 +314,21 @@ const filterBySearch = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>
 }
 
 const filterByMap = <O>(locationQuery: SelectQueryBuilder<DB, 'locations', O>, northeast: LatLng, southwest: LatLng) => {
-  return locationQuery
+  locationQuery = locationQuery
     .where('latitude', '<', northeast.latitude)
     .where('latitude', '>', southwest.latitude)
-    .where(({ eb, or}) => or([
-      eb('longitude', '<', northeast.longitude),
-      eb('longitude', '>', southwest.longitude),
-    ]))
+  if (northeast.longitude > southwest.longitude) {
+    locationQuery = locationQuery
+      .where(({ eb, and }) => and([
+        eb('longitude', '<', northeast.longitude),
+        eb('longitude', '>', southwest.longitude),
+      ]))
+  } else {
+    locationQuery = locationQuery
+      .where(({ eb, or}) => or([
+        eb('longitude', '<', northeast.longitude),
+        eb('longitude', '>', southwest.longitude),
+      ]))
+  }
+  return locationQuery
 }
