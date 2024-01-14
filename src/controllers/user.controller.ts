@@ -16,6 +16,19 @@ const userRoutes: ControllerEndpoint[] = [
       res.json(req.user)
     },
   },
+  {
+    routePath: '/api/user',
+    method: 'get',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{}>, res: TypedResponse<SessionUser>) => {
+      if (!req.user) {
+        res.status(401).send('Unauthorized')
+        return
+      }
+
+      res.json(req.user)
+    },
+  }
 ]
 
 passport.use(
@@ -36,7 +49,7 @@ passport.use(
 
 passport.serializeUser(function (user, cb) {
   process.nextTick(function () {
-    cb(null, { id: user.id, username: user.username });
+    cb(null, { user_id: user.id, username: user.username, email: user.email, verified: user.verified });
   });
 });
 
