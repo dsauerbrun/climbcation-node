@@ -135,6 +135,7 @@ const userRoutes: ControllerEndpoint[] = [
         return
       }
 
+      console.log('userResp', userResp)
       await db.updateTable('users')
         .set({
           verified: true,
@@ -197,6 +198,28 @@ const userRoutes: ControllerEndpoint[] = [
       }
 
       res.json({ })
+    }
+  },
+  {
+    routePath: '/api/user',
+    method: 'delete',
+    middlewares: [rateLimiter, isAuthenticated],
+    executionFunction: async (req: TypedRequestQuery<{}>, res: TypedResponse<{}>) => {
+      const userId = req.user.userId
+
+      await db.updateTable('users')
+        .set({
+          deleted: true,
+        })
+        .where('id', '=', userId)
+        .executeTakeFirstOrThrow() 
+
+      req.logout((err) => {
+        if (err) {
+          res.status(500).json({ error: err })
+        }
+        res.json({ })
+      })
     }
   }
 ]
