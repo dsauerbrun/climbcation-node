@@ -28,7 +28,20 @@ const userRoutes: ControllerEndpoint[] = [
 
       res.json(req.user)
     },
-  }
+  },
+  {
+    routePath: '/api/user/logout',
+    method: 'get',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{}>, res: TypedResponse<{}>) => {
+      req.logout((err) => {
+        if (err) {
+          res.status(500).json({ error: err })
+        }
+        res.redirect(req.baseUrl);
+      })
+    },
+  },
 ]
 
 passport.use(
