@@ -4,6 +4,8 @@ import passport from 'passport'
 import LocalStrategy from 'passport-local'
 import { SessionUser } from "../services/user.service/types.js"
 import { getUserByUsernamePassword, updateUserLastIp } from "../services/user.service/index.js"
+import { isAuthenticated } from "../lib/middlewares/authenticate.middleware.js"
+import { updateUsername } from "../services/user.service/update-username.js"
 
 const userRoutes: ControllerEndpoint[] = [
   {
@@ -42,6 +44,29 @@ const userRoutes: ControllerEndpoint[] = [
       })
     },
   },
+  {
+    routePath: '/api/changeusername',
+    method: 'post',
+    middlewares: [rateLimiter, isAuthenticated],
+    executionFunction: async (req: TypedRequestQuery<{username: string}>, res: TypedResponse<{}>) => {
+      const { username } = req.body
+      if (!username) {
+        res.status(400).send('Missing username')
+        return
+      }
+
+      console.log('before update', req.user)
+
+      const userResp = await updateUsername({ newUsername: username, userId: req.user.userId })
+      if (userResp?.error) {
+        res.status(400).send(userResp.error)
+        return
+      }
+
+      req.user.username = username
+      res.json({ })
+    },
+  }
 ]
 
 passport.use(
@@ -62,7 +87,7 @@ passport.use(
 
 passport.serializeUser(function (user, cb) {
   process.nextTick(function () {
-    cb(null, { user_id: user.id, username: user.username, email: user.email, verified: user.verified });
+    cb(null, { userId: user.id, username: user.username, email: user.email, verified: user.verified });
   });
 });
 

@@ -37,6 +37,7 @@ export const getUserByUsernamePassword = async ({username, password}: GetUserByU
 
     const user: SessionUser = {
       id: dbUsersQuery[0].id,
+      userId: dbUsersQuery[0].id,
       username: dbUsersQuery[0].username,
       email: dbUsersQuery[0].email,
       verified: dbUsersQuery[0].verified,

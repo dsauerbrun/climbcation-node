@@ -13,6 +13,7 @@ export interface SessionUser {
   id: string
   verified: boolean
   lastIpLogin: string
+  userId: string
 }
 
 export const DESTINATION_CATEGORY_NAME = 'Destinations' 

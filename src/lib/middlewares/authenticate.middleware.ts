@@ -21,4 +21,12 @@ const authenticate = (req: Request, res: Response, next) => {
   })(req, res, next);
 };
 
+export const isAuthenticated = (req: Request, res: Response, next) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+
+  res.status(401).send('Unauthorized');
+}
+
 export default authenticate
