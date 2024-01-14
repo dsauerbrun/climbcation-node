@@ -10,6 +10,9 @@ import { getUserByUsername } from "../services/user.service/get-user-by-username
 import { createUser } from "../services/user.service/create-user.js"
 import { sendVerificationEmail } from "../services/user.service/send-verification-email.js"
 import { sendReactivateUserEmail } from "../services/user.service/send-reactivate-user-email.js"
+import { getUserByVerifyToken } from "../services/user.service/get-user-by-verify-token.js"
+import db from "../db/db.js"
+import { sendResetPasswordEmail } from "../services/user.service/send-reset-password-email.js"
 
 const userRoutes: ControllerEndpoint[] = [
   {
@@ -112,6 +115,40 @@ const userRoutes: ControllerEndpoint[] = [
       }
 
       res.json({ })
+    }
+  },
+  {
+    routePath: '/verify',
+    method: 'get',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{id: string}>, res: TypedResponse<{}>) => {
+      const { id: token } = req.query
+      if (!token) {
+        res.status(400).send('Missing token')
+        return
+      }
+
+      const userResp = await getUserByVerifyToken({ token })
+      if (userResp?.error) {
+        res.status(400).send(userResp.error)
+        return
+      }
+
+      await db.updateTable('users')
+        .set({
+          verified: true,
+          deleted: false,
+          verifyToken: null,
+        })
+        .where('id', '=', userResp.user.userId)
+        .executeTakeFirstOrThrow() 
+      
+      if (userResp.user.deleted) {
+        await sendResetPasswordEmail({ userId: userResp.user.userId })
+      }
+      
+      req.user.verified = true;
+      res.redirect(req.baseUrl)
     }
   }
 ]
