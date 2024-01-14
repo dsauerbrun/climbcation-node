@@ -1,10 +1,11 @@
 import { authenticate, rateLimiter } from "../lib/middlewares/index.js"
 import { ControllerEndpoint, TypedRequestQuery, TypedResponse } from "../lib/models.js"
-import passport from 'passport'
+import passport, { use } from 'passport'
 import LocalStrategy from 'passport-local'
+import GoogleStrategy from 'passport-google-oauth20'
 import { SessionUser } from "../services/user.service/types.js"
 import { getUserByEmail, getUserByUsernamePassword, updateUserLastIp } from "../services/user.service/index.js"
-import { isAuthenticated } from "../lib/middlewares/authenticate.middleware.js"
+import { googleAuthenticate, isAuthenticated } from "../lib/middlewares/authenticate.middleware.js"
 import { updateUsername } from "../services/user.service/update-username.js"
 import { getUserByUsername } from "../services/user.service/get-user-by-username.js"
 import { createUser } from "../services/user.service/create-user.js"
@@ -14,6 +15,7 @@ import { getUserByVerifyToken } from "../services/user.service/get-user-by-verif
 import db from "../db/db.js"
 import { sendResetPasswordEmail } from "../services/user.service/send-reset-password-email.js"
 import { updateUserPassword } from "../services/user.service/update-user-password.js"
+import { getUserById } from "../services/user.service/get-user-by-id.js"
 
 const userRoutes: ControllerEndpoint[] = [
   {
@@ -25,6 +27,16 @@ const userRoutes: ControllerEndpoint[] = [
 
       res.json(req.user)
     },
+  },
+  { routePath: '/auth/:provider/callback',
+    method: 'get',
+    middlewares: [rateLimiter, googleAuthenticate],
+    executionFunction: async (req: TypedRequestQuery<{}>, res: TypedResponse<{}>) => {
+      // Successful authentication, redirect home.
+      await updateUserLastIp({ userId: req.user.id, ip: req.ip })
+
+      res.redirect(req.baseUrl)
+    }
   },
   {
     routePath: '/api/user',
@@ -135,7 +147,6 @@ const userRoutes: ControllerEndpoint[] = [
         return
       }
 
-      console.log('userResp', userResp)
       await db.updateTable('users')
         .set({
           verified: true,
@@ -221,6 +232,13 @@ const userRoutes: ControllerEndpoint[] = [
         res.json({ })
       })
     }
+  },
+  { routePath: '/auth/google',
+    method: 'get',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{}>, res: TypedResponse<{}>) => {
+      passport.authenticate('google', { scope: ['profile', 'email'] })(req, res)
+    }
   }
 ]
 
@@ -238,6 +256,74 @@ passport.use(
 
     return cb(null, userResp.user)
   })
+);
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      //callbackURL: `${process.env.BASE_URL}/api/auth/google/callback`
+      callbackURL: `https://www.climbcation.com/auth/google_oauth2/callback`,
+    },
+    async function (accessToken, refreshToken, profile, cb) {
+      const email = profile.emails[0].value;
+      let username = profile.displayName;
+      const password = profile.id;
+      const userResp = await getUserByEmail({
+        email: profile.emails[0].value,
+      });
+      if (userResp?.error) {
+        return cb(null, false, { message: userResp.error });
+      }
+
+      if (userResp.user?.deleted) {
+        await sendReactivateUserEmail({ userId: userResp.user.id });
+        return cb(null, false, {message: "This account has been deleted. We have sent you a verification email to re-enable your account."});
+      }
+
+      let userToPass = userResp.user;
+
+      if (!userResp.user) {
+        // create user
+        const userByUsername = await getUserByUsername({ username });
+        if (userByUsername.user) {
+          // username already exists so we need to change the username
+          username = `${username}_${profile.id}`;
+        }
+
+        const createResp = await createUser({
+          username,
+          password,
+          email,
+          uid: profile.id,
+          provider: "google_oauth2",
+          verified: true,
+          refreshToken,
+          googleToken: accessToken,
+        });
+
+        if (createResp?.error) {
+          return cb(null, false, { message: createResp.error });
+        }
+
+        const userByIdResp = await getUserById({ id: createResp.userId })
+        userToPass = userByIdResp.user;
+      } else if (userResp.user) {
+        // update user tokens
+        await db
+          .updateTable("users")
+          .set({
+            googleToken: accessToken,
+            googleRefreshToken: refreshToken,
+          })
+          .where("id", "=", userResp.user.id)
+          .executeTakeFirstOrThrow();
+      }
+
+      return cb(null, userToPass);
+    }
+  )
 );
 
 passport.serializeUser(function (user, cb) {
