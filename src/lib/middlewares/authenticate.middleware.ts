@@ -1,22 +1,24 @@
 import { Request, Response } from 'express'
+import passport from 'passport';
+import { SessionUser } from '../../services/user.service/types.js';
 
-const authenticate = (req: Request, res: Response, next: any) => {
-    // some auth logic here
-    const { userId: queryUserId } = req.query
-    const { userId: paramUserId } = req.params
-    const { userId: bodyUserId } = req.body
-    const userId = queryUserId || paramUserId || bodyUserId
-    if (!userId) {
-      const reason = 'No user provided'
-      const explanation = 'Must provide a user to complete this request.'
-
-      res.status(403)
-      res.json({reason, explanation})
-      return 
+const authenticate = (req: Request, res: Response, next) => {
+  passport.authenticate("local", (err, user: SessionUser, info) => {
+    if (err) {
+      return next(err);
     }
 
-    next()
+    if (!user) {
+      return res.status(400).json(info);
+    }
 
-  }
+    req.login(user, (err) => {
+      if (err) {
+        return next(err);
+      }
+      return next();
+    });
+  })(req, res, next);
+};
 
 export default authenticate

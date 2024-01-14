@@ -1,4 +1,4 @@
-import { Request, Response } from "express"
+import { ErrorRequestHandler, Request, Response } from "express"
 import { Query, Send } from 'express-serve-static-core';
 
 
@@ -7,6 +7,7 @@ export interface ControllerEndpoint {
   method: string
   middlewares: ((req: Request, res: Response, next: any) => void)[]
   executionFunction: (req: Request, res: Response, next: any) => void
+  errorFunction?: (err: ErrorRequestHandler, req: Request, res: Response, next: any) => void
 }
 
 export interface ServiceResponseError {
