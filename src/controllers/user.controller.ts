@@ -13,6 +13,7 @@ import { sendReactivateUserEmail } from "../services/user.service/send-reactivat
 import { getUserByVerifyToken } from "../services/user.service/get-user-by-verify-token.js"
 import db from "../db/db.js"
 import { sendResetPasswordEmail } from "../services/user.service/send-reset-password-email.js"
+import { updateUserPassword } from "../services/user.service/update-user-password.js"
 
 const userRoutes: ControllerEndpoint[] = [
   {
@@ -169,6 +170,32 @@ const userRoutes: ControllerEndpoint[] = [
       }
 
       await sendResetPasswordEmail({ userId: userResp.user.userId })
+      res.json({ })
+    }
+  },
+  {
+    routePath: '/api/changepassword',
+    method: 'post',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{token: string, password: string}>, res: TypedResponse<{}>) => {
+      const { id: token, password } = req.body
+      if (!token || !password) {
+        res.status(400).send('Missing token or password')
+        return
+      }
+
+      const userResp = await getUserByVerifyToken({ token })
+      if (userResp?.error) {
+        res.status(400).send(userResp.error)
+        return
+      }
+
+      const { error } = await updateUserPassword({ userId: userResp.user.userId, newUserPassword: password })
+      if (error) {
+        res.status(400).json(error)
+        return
+      }
+
       res.json({ })
     }
   }

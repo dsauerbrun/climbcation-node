@@ -2,6 +2,7 @@ import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
 import bcrypt from 'bcrypt'
 import { generateVerificationToken } from "./generate-verification-token.js";
+import { getPasswordDetails } from "./utils.js";
 
 export interface CreateUserResponse extends ServiceResponseError {
   userId?: string;
@@ -15,12 +16,12 @@ export interface CreateUserRequest {
 
 export const createUser = async ({email, username, password}: CreateUserRequest): Promise<CreateUserResponse> => {
   try {
-    if (password.length < 6) {
-      return { error: 'Password must be at least 6 characters' }
+
+    const { error, salt, saltedPassword } = getPasswordDetails(password)
+    if (error) {
+      return { error }
     }
 
-    const salt = bcrypt.genSaltSync(10);
-    const saltedPassword = bcrypt.hashSync(password, salt);
     const newUser = await db
       .insertInto('users')
       .values({

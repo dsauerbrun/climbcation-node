@@ -1,3 +1,5 @@
+import bcrypt from 'bcrypt';
+
 export const generateVerificationEmailText = (username: string, token: string) => {
 
   const confirmEmailUserUrl = `https://www.climbcation.com/verify?id=${token}`
@@ -14,4 +16,14 @@ export const generateVerificationEmailText = (username: string, token: string) =
     `;
 
     return { textMessage, emailMessage }
+}
+
+export const getPasswordDetails = (password: string) => {
+  if (password.length < 6) {
+      return { error: 'Password must be at least 6 characters' }
+    }
+
+  const salt = bcrypt.genSaltSync(10);
+  const saltedPassword = bcrypt.hashSync(password, salt);
+  return { saltedPassword, salt}
 }
