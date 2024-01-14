@@ -1,6 +1,5 @@
 import db from "../../db/index.js"
 import { ServiceResponseError } from "../../lib/index.js"
-import nodemailer from 'nodemailer'
 import { generateVerificationEmailText } from "./utils.js";
 import { sendUserEmail } from "./send-user-email.js";
 
@@ -11,16 +10,6 @@ export interface SendVerificationEmailRequest {
   email: string,
   userId: string
 }
-
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  post: 587,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-} as nodemailer.TransportOptions);
 
 export const sendVerificationEmail = async ({email, userId}: SendVerificationEmailRequest): Promise<SendVerificationEmailResponse> => {
   try {

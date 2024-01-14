@@ -150,6 +150,27 @@ const userRoutes: ControllerEndpoint[] = [
       req.user.verified = true;
       res.redirect(req.baseUrl)
     }
+  },
+  {
+    routePath: '/api/resetpassword',
+    method: 'post',
+    middlewares: [rateLimiter],
+    executionFunction: async (req: TypedRequestQuery<{email: string}>, res: TypedResponse<{}>) => {
+      const { email } = req.body
+      if (!email) {
+        res.status(400).send('Missing email')
+        return
+      }
+
+      const userResp = await getUserByEmail({ email })
+      if (userResp?.error) {
+        res.status(400).send(userResp.error)
+        return
+      }
+
+      await sendResetPasswordEmail({ userId: userResp.user.userId })
+      res.json({ })
+    }
   }
 ]
 
