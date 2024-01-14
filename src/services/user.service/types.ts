@@ -14,6 +14,7 @@ export interface SessionUser {
   verified: boolean
   lastIpLogin: string
   userId: string
+  deleted?: boolean
 }
 
 export const DESTINATION_CATEGORY_NAME = 'Destinations' 
